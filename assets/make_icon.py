@@ -22,27 +22,44 @@ def main():
 
     d = ImageDraw.Draw(icon)
     # Try common fonts; fallback to default
+    font = None
     for fname in ("segoeuib.ttf", "arial.ttf"):
         try:
             font = ImageFont.truetype(fname, 260)
             break
-        except:
-            font = None
+        except Exception:
+            continue
     if font is None:
         font = ImageFont.load_default()
 
     text = "SR"
-    tw, th = d.textsize(text, font=font)
+    # Use textbbox for accurate text size (Pillow >=8.0.0)
+    try:
+        bbox = d.textbbox((0, 0), text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    except AttributeError:
+        # Fallback for older Pillow
+        tw, th = d.textsize(text, font=font)
     x = (W - tw)//2
     y = (H - th)//2 - 10
     d.text((x+4, y+6), text, font=font, fill=(0,0,0,100))       # subtle shadow
     d.text((x, y), text, font=font, fill=(255,255,255,255))     # foreground
 
     icon.save("social_resizer.png", "PNG")
-    icon.resize((256,256), Image.Resampling.LANCZOS).save(
-        "social_resizer.ico", format="ICO",
-        sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)]
-    )
+    # Handle resampling for different Pillow versions
+    try:
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample = Image.LANCZOS
+    icon_small = icon.resize((256,256), resample)
+    # Save ICO with multiple sizes if supported
+    try:
+        icon_small.save(
+            "social_resizer.ico", format="ICO",
+            sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)]
+        )
+    except Exception:
+        icon_small.save("social_resizer.ico", format="ICO")
     print("Saved social_resizer.png and social_resizer.ico")
 
 if __name__ == "__main__":
